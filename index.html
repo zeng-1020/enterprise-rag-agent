@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Agentic RAG Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .scrollbar-thin {
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .typing::after {
+      content: "▍";
+      margin-left: 2px;
+      color: #818cf8;
+      animation: blink 1s steps(2, start) infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body class="h-screen overflow-hidden bg-slate-900 font-mono text-slate-200 antialiased">
+  <div class="flex h-full flex-col">
+    <!-- 顶部导航 -->
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-700/70 bg-slate-900/95 px-4 py-2 sm:px-6">
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-indigo-400 shadow-[0_0_12px_rgba(129,140,248,0.9)]"></span>
+        <h1 class="truncate text-sm font-semibold tracking-wider text-slate-100 sm:text-base">
+          Enterprise Agentic RAG Console
+        </h1>
+        <span class="hidden rounded border border-indigo-500/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-indigo-300 md:inline">
+          Agentic RAG
+        </span>
+      </div>
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <label for="deptSelect" class="hidden text-[11px] uppercase tracking-widest text-slate-500 sm:inline">
+          dept_id
+        </label>
+        <select
+          id="deptSelect"
+          class="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
+        >
+          <!-- 接口返回数据前的兜底选项；有数据时由 JS 动态替换 -->
+          <option value="HR_dept">HR_dept</option>
+          <option value="finance_dept">finance_dept</option>
+          <option value="legal_dept">legal_dept</option>
+        </select>
+        <button
+          id="newDeptBtn"
+          type="button"
+          class="rounded-md border border-indigo-500/60 bg-indigo-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-300 transition hover:bg-indigo-500/20 hover:text-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          + 新建部门
+        </button>
+        <div id="customDeptBox" class="hidden items-center gap-1">
+          <input
+            id="customDeptInput"
+            type="text"
+            maxlength="128"
+            autocomplete="off"
+            placeholder="marketing_dept"
+            class="w-36 rounded-md border border-indigo-500/60 bg-slate-800 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
+          >
+          <button
+            id="customDeptConfirm"
+            type="button"
+            class="rounded-md border border-emerald-500/50 bg-emerald-500/10 px-2 py-1.5 text-[11px] text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            确定
+          </button>
+          <button
+            id="customDeptCancel"
+            type="button"
+            class="rounded-md border border-slate-600 px-2 py-1.5 text-[11px] text-slate-400 transition hover:text-slate-200 disabled:opacity-50"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <!-- 左侧：知识库 -->
+      <aside class="flex w-full shrink-0 flex-col border-b border-slate-700/70 bg-slate-900/70 p-5 lg:w-[30%] lg:max-w-[440px] lg:border-b-0 lg:border-r">
+        <div class="mb-5 flex items-center justify-between">
+          <h2 class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Knowledge Base</h2>
+          <span id="deptLabel" class="rounded bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">HR_dept</span>
+        </div>
+
+        <label
+          id="dropZone"
+          for="fileInput"
+          role="button"
+          tabindex="0"
+          class="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/30 px-4 py-10 text-center transition hover:border-indigo-500 hover:bg-indigo-500/5 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+        >
+          <input id="fileInput" type="file" accept=".pdf,application/pdf" class="sr-only">
+          <svg class="mb-3 h-9 w-9 text-slate-500 transition group-hover:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+          </svg>
+          <p id="uploadTitle" class="text-sm text-slate-300 transition group-hover:text-slate-100">
+            点击或拖拽 PDF 到此处
+          </p>
+          <p class="mt-1 text-[11px] text-slate-500">单个文件 ≤ 50 MB · 自动解析并入库</p>
+        </label>
+
+        <div
+          id="uploadResult"
+          class="mt-4 whitespace-pre-line rounded-lg border border-slate-700/70 bg-slate-800/40 p-3 text-xs leading-relaxed text-slate-400"
+        >等待上传…</div>
+
+        <div class="mt-auto space-y-3 border-t border-slate-700/70 pt-4">
+          <div class="flex items-center gap-2 text-xs">
+            <span id="connDot" class="h-2 w-2 rounded-full bg-slate-500"></span>
+            <span id="connText" class="text-slate-400">检测连接中…</span>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-600">
+            <span>v0.1.0 · FastAPI + LangGraph</span>
+            <a href="/docs" target="_blank" rel="noreferrer" class="transition hover:text-indigo-400">API Docs ↗</a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧：对话区 -->
+      <main class="flex min-h-0 min-w-0 flex-1 flex-col bg-slate-950/40">
+        <!-- SSE 状态栏 -->
+        <div
+          id="statusBar"
+          class="hidden shrink-0 items-center gap-3 border-b border-indigo-500/30 bg-indigo-500/10 px-5 py-2.5 text-xs text-indigo-200"
+        >
+          <span class="relative flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-70"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-indigo-400"></span>
+          </span>
+          <span id="statusText" class="animate-pulse tracking-wide">正在处理…</span>
+        </div>
+
+        <!-- 聊天记录 -->
+        <div
+          id="messages"
+          class="scrollbar-thin flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6"
+          aria-live="polite"
+        ></div>
+
+        <!-- 输入区 -->
+        <div class="shrink-0 border-t border-slate-700/70 bg-slate-900/70 p-4 sm:px-6">
+          <div class="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 transition focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/30">
+            <span class="select-none text-indigo-400">&gt;</span>
+            <input
+              id="questionInput"
+              type="text"
+              autocomplete="off"
+              maxlength="4000"
+              placeholder="输入问题，Enter 发送…"
+              class="min-w-0 flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+            >
+            <button
+              id="sendBtn"
+              type="button"
+              class="flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+              </svg>
+              <span id="sendLabel">发送</span>
+            </button>
+          </div>
+          <p class="mt-2 text-[10px] text-slate-600">
+            同一会话共享 thread_id；切换部门会自动开启新会话。
+          </p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const deptSelect = document.getElementById("deptSelect");
+      const deptLabel = document.getElementById("deptLabel");
+      const dropZone = document.getElementById("dropZone");
+      const fileInput = document.getElementById("fileInput");
+      const uploadTitle = document.getElementById("uploadTitle");
+      const uploadResult = document.getElementById("uploadResult");
+      const statusBar = document.getElementById("statusBar");
+      const statusText = document.getElementById("statusText");
+      const messagesEl = document.getElementById("messages");
+      const questionInput = document.getElementById("questionInput");
+      const sendBtn = document.getElementById("sendBtn");
+      const sendLabel = document.getElementById("sendLabel");
+      const connDot = document.getElementById("connDot");
+      const connText = document.getElementById("connText");
+      const newDeptBtn = document.getElementById("newDeptBtn");
+      const customDeptBox = document.getElementById("customDeptBox");
+      const customDeptInput = document.getElementById("customDeptInput");
+      const customDeptConfirm = document.getElementById("customDeptConfirm");
+      const customDeptCancel = document.getElementById("customDeptCancel");
+
+      let currentThreadId = "session-" + Date.now();
+      let busy = false;
+      let uploading = false;
+
+      // -----------------------------------------------------------------
+      // 通用 UI 工具
+      // -----------------------------------------------------------------
+      function scrollToBottom() {
+        requestAnimationFrame(() => {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        });
+      }
+
+      function addMessage(role, text) {
+        const row = document.createElement("div");
+        row.className = "flex " + (role === "user" ? "justify-end" : "justify-start");
+
+        const bubble = document.createElement("div");
+        bubble.className = role === "user"
+          ? "max-w-[85%] rounded-2xl rounded-br-sm border border-blue-700/60 bg-blue-950/80 px-4 py-3 text-sm leading-relaxed text-blue-50 shadow-lg shadow-blue-950/30"
+          : "max-w-[85%] rounded-2xl rounded-bl-sm border border-slate-700 bg-slate-800 px-4 py-3 text-sm leading-relaxed text-slate-200 shadow-lg shadow-slate-950/30";
+
+        const content = document.createElement("div");
+        content.className = "whitespace-pre-wrap break-words";
+        content.textContent = text;
+
+        bubble.appendChild(content);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        scrollToBottom();
+
+        return { row: row, bubble: bubble, content: content };
+      }
+
+      function addError(message) {
+        const row = document.createElement("div");
+        row.className = "flex justify-start";
+
+        const box = document.createElement("div");
+        box.className = "max-w-[85%] rounded-xl border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm leading-relaxed text-red-300";
+        box.textContent = "系统错误：" + message;
+
+        row.appendChild(box);
+        messagesEl.appendChild(row);
+        scrollToBottom();
+      }
+
+      function showStatus(message) {
+        statusText.textContent = message || "正在处理…";
+        statusBar.classList.remove("hidden");
+        statusBar.classList.add("flex");
+      }
+
+      function hideStatus() {
+        statusBar.classList.add("hidden");
+        statusBar.classList.remove("flex");
+        statusText.textContent = "";
+      }
+
+      function updateControls() {
+        const locked = busy || uploading;
+        deptSelect.disabled = locked;
+        newDeptBtn.disabled = locked;
+        customDeptInput.disabled = locked;
+        customDeptConfirm.disabled = locked;
+        customDeptCancel.disabled = locked;
+      }
+
+      function setBusy(value) {
+        busy = value;
+        sendBtn.disabled = value;
+        sendLabel.textContent = value ? "生成中…" : "发送";
+        if (value) hideCustomDept();
+        updateControls();
+      }
+
+      function setUploadState(kind, text) {
+        const base = "mt-4 whitespace-pre-line rounded-lg border p-3 text-xs leading-relaxed transition";
+        const styles = {
+          idle: "border-slate-700/70 bg-slate-800/40 text-slate-400",
+          uploading: "border-indigo-500/50 bg-indigo-500/10 text-indigo-200 animate-pulse",
+          success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+          error: "border-red-500/40 bg-red-500/10 text-red-300"
+        };
+        uploadResult.className = base + " " + (styles[kind] || styles.idle);
+        uploadResult.textContent = text;
+      }
+
+      function setUploading(value) {
+        uploading = value;
+        dropZone.setAttribute("aria-busy", value ? "true" : "false");
+        dropZone.classList.toggle("pointer-events-none", value);
+        dropZone.classList.toggle("opacity-60", value);
+        uploadTitle.textContent = value ? "Uploading…" : "点击或拖拽 PDF 到此处";
+        if (value) hideCustomDept();
+        updateControls();
+      }
+
+      function formatDetail(detail) {
+        if (!detail) return "";
+        if (typeof detail === "string") return detail;
+        if (Array.isArray(detail)) {
+          return detail.map(function (item) {
+            return item && item.msg ? item.msg : JSON.stringify(item);
+          }).join("；");
+        }
+        return JSON.stringify(detail);
+      }
+
+      async function readErrorDetail(response) {
+        const text = await response.text();
+        if (!text) return "HTTP " + response.status;
+        try {
+          const data = JSON.parse(text);
+          return formatDetail(data.detail) || "HTTP " + response.status;
+        } catch (err) {
+          return text.slice(0, 300);
+        }
+      }
+
+      // -----------------------------------------------------------------
+      // 部门列表与新建部门
+      // -----------------------------------------------------------------
+      function resetSessionForDept(deptId) {
+        currentThreadId = "session-" + Date.now();
+        deptLabel.textContent = deptId;
+        messagesEl.replaceChildren();
+        hideStatus();
+        addMessage("ai", "已切换到部门 " + deptId + "，并开启新会话。");
+      }
+
+      function showCustomDept() {
+        if (busy || uploading) return;
+        newDeptBtn.classList.add("hidden");
+        customDeptBox.classList.remove("hidden");
+        customDeptBox.classList.add("flex");
+        customDeptInput.value = "";
+        customDeptInput.classList.remove("border-red-500");
+        customDeptInput.focus();
+      }
+
+      function hideCustomDept() {
+        customDeptBox.classList.add("hidden");
+        customDeptBox.classList.remove("flex");
+        newDeptBtn.classList.remove("hidden");
+      }
+
+      function commitCustomDept() {
+        // 去掉控制字符，避免拼进 Qdrant 点 ID 时产生歧义
+        const value = customDeptInput.value
+          .replace(/[\u0000-\u001f\u007f]/g, "")
+          .trim();
+
+        if (!value) {
+          customDeptInput.classList.add("border-red-500");
+          customDeptInput.focus();
+          return;
+        }
+
+        const previous = deptSelect.value;
+        const exists = Array.from(deptSelect.options).some(function (option) {
+          return option.value === value;
+        });
+
+        if (!exists) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value;
+          deptSelect.appendChild(option);
+        }
+
+        deptSelect.value = value;
+        hideCustomDept();
+
+        if (previous !== value) {
+          resetSessionForDept(value);
+        } else {
+          deptLabel.textContent = value;
+        }
+      }
+
+      async function refreshDepartments(options) {
+        const opts = options || {};
+        try {
+          const response = await fetch("/api/docs/departments", { cache: "no-store" });
+          if (!response.ok) throw new Error(await readErrorDetail(response));
+
+          const departments = await response.json();
+          if (!Array.isArray(departments) || departments.length === 0) return;
+
+          const previous = deptSelect.value;
+          const seen = new Set();
+          const values = [];
+          const fragment = document.createDocumentFragment();
+
+          departments.forEach(function (item) {
+            const value = String(item && item.dept_id ? item.dept_id : "").trim();
+            if (!value || seen.has(value)) return;
+            seen.add(value);
+            values.push(value);
+
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value;
+            option.title = value + " · " + (item.count != null ? item.count : 0) + " 个分块";
+            fragment.appendChild(option);
+          });
+
+          if (!values.length) return;
+          deptSelect.replaceChildren(fragment);
+
+          const desired = opts.selected && seen.has(opts.selected)
+            ? opts.selected
+            : (seen.has(previous) ? previous : values[0]);
+
+          deptSelect.value = desired;
+          deptLabel.textContent = desired;
+        } catch (err) {
+          // 接口失败时保留 HTML 里的兜底选项，不阻断上传和问答
+          console.warn("部门列表加载失败：", err);
+        }
+      }
+
+      // -----------------------------------------------------------------
+      // 健康检查
+      // -----------------------------------------------------------------
+      async function checkHealth() {
+        try {
+          const response = await fetch("/health", { cache: "no-store" });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          const data = await response.json();
+          connDot.className = "h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]";
+          connText.textContent = data.agent_ready ? "在线 · Agent 就绪" : "在线 · Agent 未就绪";
+          connText.className = "text-emerald-400";
+        } catch (err) {
+          connDot.className = "h-2 w-2 rounded-full bg-red-500";
+          connText.textContent = "离线 · 无法连接服务";
+          connText.className = "text-red-400";
+        }
+      }
+
+      // -----------------------------------------------------------------
+      // 文件上传
+      // -----------------------------------------------------------------
+      async function uploadFile(file) {
+        if (!file || uploading) return;
+
+        if (!/\.pdf$/i.test(file.name)) {
+          setUploadState("error", "上传失败：仅支持 PDF 文件（后缀 .pdf）");
+          return;
+        }
+        if (file.size > 50 * 1024 * 1024) {
+          setUploadState("error", "上传失败：文件超过 50 MB 限制");
+          return;
+        }
+
+        const deptId = deptSelect.value;
+        setUploading(true);
+        setUploadState("uploading", "Uploading...\n正在解析并入库：" + file.name);
+
+        const form = new FormData();
+        form.append("file", file);
+        form.append("dept_id", deptId);
+
+        try {
+          const response = await fetch("/api/docs/upload", {
+            method: "POST",
+            body: form
+          });
+          const data = await response.json().catch(function () { return {}; });
+
+          if (!response.ok) {
+            throw new Error(formatDetail(data.detail) || "HTTP " + response.status);
+          }
+
+          const statusMap = {
+            created: "首次入库",
+            updated: "版本已更新",
+            unchanged: "内容未修改，未重复写入"
+          };
+          const statusLabel = statusMap[data.status] || data.status;
+          setUploadState(
+            "success",
+            statusLabel + " · " + data.doc_id + "\n" +
+            "部门 " + data.dept_id + " · 切块 " + data.chunk_count +
+            " · 父块 " + data.parent_count + " · 写入 " + data.written_points +
+            " · 停用 " + data.deactivated_points + " · " + data.elapsed_seconds + "s"
+          );
+
+          // 上传成功后刷新部门列表，并保持选中刚上传的部门
+          await refreshDepartments({ selected: deptId });
+        } catch (err) {
+          setUploadState("error", "上传失败：" + (err.message || String(err)));
+        } finally {
+          setUploading(false);
+          fileInput.value = "";
+        }
+      }
+
+      fileInput.addEventListener("change", function () {
+        const file = fileInput.files && fileInput.files[0];
+        if (file) uploadFile(file);
+      });
+
+      dropZone.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          if (!uploading) fileInput.click();
+        }
+      });
+
+      ["dragenter", "dragover"].forEach(function (name) {
+        dropZone.addEventListener(name, function (event) {
+          event.preventDefault();
+          if (uploading) return;
+          dropZone.classList.add("border-indigo-400", "bg-indigo-500/10");
+        });
+      });
+
+      ["dragleave", "drop"].forEach(function (name) {
+        dropZone.addEventListener(name, function (event) {
+          event.preventDefault();
+          dropZone.classList.remove("border-indigo-400", "bg-indigo-500/10");
+        });
+      });
+
+      dropZone.addEventListener("drop", function (event) {
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        if (file) uploadFile(file);
+      });
+
+      // -----------------------------------------------------------------
+      // SSE 流解析
+      // -----------------------------------------------------------------
+      function handleSSEFrame(frame, ai, state) {
+        let eventName = "message";
+        const dataLines = [];
+
+        frame.split("\n").forEach(function (rawLine) {
+          const line = rawLine.replace(/\r$/, "");
+          if (!line || line.startsWith(":")) return;
+          if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).replace(/^ /, ""));
+          }
+        });
+
+        if (!dataLines.length) return;
+
+        let data;
+        try {
+          data = JSON.parse(dataLines.join("\n"));
+        } catch (err) {
+          return;
+        }
+
+        if (eventName === "status") {
+          showStatus(data.message || "正在处理…");
+          return;
+        }
+
+        if (eventName === "answer") {
+          const delta = typeof data.delta === "string" ? data.delta : "";
+          if (!delta) return;
+
+          if (!state.answerStarted) {
+            state.answerStarted = true;
+            ai.content.textContent = "";
+            ai.content.classList.remove("text-slate-400");
+            ai.bubble.classList.remove("typing");
+          }
+          ai.content.textContent += delta;
+          scrollToBottom();
+          return;
+        }
+
+        if (eventName === "done") {
+          state.doneReceived = true;
+          state.verdict = data.is_relevant || null;
+          hideStatus();
+          ai.bubble.classList.remove("typing");
+
+          if (!state.answerStarted) {
+            if (state.verdict === "NO") {
+              ai.content.textContent = "未能在知识库中找到足够相关的资料。";
+              ai.content.classList.add("text-slate-400");
+            } else {
+              ai.content.textContent = "（模型未返回内容）";
+              ai.content.classList.add("text-slate-400");
+            }
+          }
+
+          const meta = document.createElement("div");
+          meta.className = "mt-2 text-[11px] text-slate-500";
+          meta.textContent =
+            "is_relevant=" + (data.is_relevant || "-") +
+            " · retry_count=" + (data.retry_count != null ? data.retry_count : 0) +
+            " · thread=" + (data.thread_id || currentThreadId);
+          ai.bubble.appendChild(meta);
+          scrollToBottom();
+          return;
+        }
+
+        if (eventName === "error") {
+          throw new Error(data.message || "服务端返回错误");
+        }
+      }
+
+      async function consumeSSE(response, ai) {
+        if (!response.body) {
+          throw new Error("当前浏览器不支持流式响应");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        const state = { answerStarted: false, doneReceived: false, verdict: null };
+        let buffer = "";
+
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+
+          buffer += decoder.decode(chunk.value, { stream: true });
+          buffer = buffer.replace(/\r\n/g, "\n");
+
+          let index;
+          while ((index = buffer.indexOf("\n\n")) >= 0) {
+            const frame = buffer.slice(0, index);
+            buffer = buffer.slice(index + 2);
+            handleSSEFrame(frame, ai, state);
+          }
+        }
+
+        if (buffer.trim()) {
+          handleSSEFrame(buffer, ai, state);
+        }
+
+        if (!state.doneReceived) {
+          throw new Error("SSE 连接提前结束，未收到 done 事件");
+        }
+      }
+
+      // -----------------------------------------------------------------
+      // 发送问题
+      // -----------------------------------------------------------------
+      async function sendQuestion() {
+        if (busy) return;
+
+        const question = questionInput.value.trim();
+        if (!question) return;
+
+        const deptId = deptSelect.value;
+        if (!deptId) {
+          addError("请先选择部门");
+          return;
+        }
+
+        questionInput.value = "";
+        addMessage("user", question);
+
+        const ai = addMessage("ai", "正在思考…");
+        ai.bubble.classList.add("typing");
+        ai.content.classList.add("text-slate-400");
+        showStatus("已连接，正在处理问题…");
+        setBusy(true);
+
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dept_id: deptId,
+              thread_id: currentThreadId,
+              question: question
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(await readErrorDetail(response));
+          }
+
+          await consumeSSE(response, ai);
+        } catch (err) {
+          hideStatus();
+          ai.bubble.classList.remove("typing");
+
+          const placeholder = ai.content.textContent === "正在思考…";
+          if (placeholder) {
+            ai.row.remove();
+          }
+          addError(err.message || String(err));
+        } finally {
+          hideStatus();
+          ai.bubble.classList.remove("typing");
+          setBusy(false);
+          questionInput.focus();
+        }
+      }
+
+      sendBtn.addEventListener("click", sendQuestion);
+
+      questionInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          sendQuestion();
+        }
+      });
+
+      // 切换部门：同一 thread_id 会携带旧部门上下文，因此强制开启新会话
+      deptSelect.addEventListener("change", function () {
+        if (busy || uploading) return;
+        resetSessionForDept(deptSelect.value);
+      });
+
+      newDeptBtn.addEventListener("click", showCustomDept);
+      customDeptConfirm.addEventListener("click", commitCustomDept);
+      customDeptCancel.addEventListener("click", hideCustomDept);
+
+      customDeptInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.isComposing) {
+          event.preventDefault();
+          commitCustomDept();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          hideCustomDept();
+        }
+      });
+
+      customDeptInput.addEventListener("input", function () {
+        customDeptInput.classList.remove("border-red-500");
+      });
+
+      // -----------------------------------------------------------------
+      // 初始化
+      // -----------------------------------------------------------------
+      deptLabel.textContent = deptSelect.value;
+      addMessage(
+        "ai",
+        "控制台已就绪。选择部门后上传 PDF，或直接输入问题开始对话。"
+      );
+
+      if (location.protocol === "file:") {
+        addError("请通过 FastAPI 访问本页面（如 http://127.0.0.1:8000/），直接打开本地文件无法调用 API。");
+      }
+
+      // 页面加载时用后端聚合结果替换静态兜底选项
+      refreshDepartments();
+
+      checkHealth();
+      setInterval(checkHealth, 15000);
+      questionInput.focus();
+    })();
+  </script>
+</body>
+</html>

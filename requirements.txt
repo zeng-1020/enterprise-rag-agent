@@ -1,0 +1,37 @@
+# =============================================================================
+# 企业级多租户 RAG 系统 —— Python 依赖清单
+# Python 版本要求：3.12+
+# 安装命令：pip install -r requirements.txt
+# 建议：首次安装成功后执行 `pip freeze > requirements.lock.txt` 锁定精确版本，
+#       生产环境使用锁定后的文件安装，避免上游版本漂移导致行为不一致。
+# =============================================================================
+
+# ----------------------------- Web 服务层 -----------------------------------
+fastapi>=0.115.0,<1.0.0          # 异步 Web 框架，提供 REST / SSE 接口
+uvicorn[standard]>=0.30.0        # ASGI 服务器，用于运行 FastAPI（含 uvloop/httptools 等加速组件）
+sse-starlette>=2.1.0             # SSE（Server-Sent Events）支持，用于流式输出问答结果
+python-multipart>=0.0.9          # 解析 multipart/form-data，文档上传接口必需
+pydantic>=2.8.0,<3.0.0           # 数据校验与序列化（FastAPI 的模型基础）
+pydantic-settings>=2.4.0,<3.0.0  # 从环境变量 / .env 读取配置并做类型校验
+python-dotenv>=1.0.0             # .env 文件加载（pydantic-settings 内部依赖，显式声明便于独立脚本使用）
+
+# ------------------------- LangChain / LangGraph ----------------------------
+langchain>=0.3.0                 # LangChain 主包，提供 Prompt、Runnable、工具等基础抽象
+langchain-core>=0.3.0            # LangChain 核心接口（与主包配套，显式声明避免版本错配）
+langchain-openai>=0.2.0          # OpenAI 兼容协议的 Chat 模型与 Embedding 客户端（DeepSeek/通义/智谱等均可用）
+langchain-qdrant>=0.2.0          # LangChain 与 Qdrant 的向量库集成
+langchain-text-splitters>=0.3.0  # 文档切分器（RecursiveCharacterTextSplitter 等）
+langgraph>=0.2.0                 # 有状态 Agent 编排框架，用于构建 RAG / 多步推理流程
+langgraph-checkpoint-sqlite>=2.0.0  # LangGraph SQLite 状态持久化（AsyncSqliteSaver / Checkpointer）
+aiosqlite>=0.20.0                # AsyncSqliteSaver 的异步 SQLite 驱动，避免阻塞事件循环
+
+# ----------------------------- 向量与检索 -----------------------------------
+qdrant-client>=1.12.0            # Qdrant 官方 Python 客户端（连接本地 Docker 实例）
+rank_bm25>=0.2.2                 # BM25 关键词检索，用于与向量检索混合（Hybrid Search）
+
+# ----------------------------- 文档解析 -------------------------------------
+pymupdf>=2.0.0                   # PDF 解析内核，读取页面、加密状态与文本层
+pymupdf4llm>=2.0.0               # 将 PDF 版面转换为 Markdown，保留标题层级供父块切分
+
+# ------------------------------- 工具库 -------------------------------------
+httpx>=0.27.0                    # 异步 HTTP 客户端，用于健康检查、外部 API 调用等场景
